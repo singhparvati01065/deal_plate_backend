@@ -19,8 +19,7 @@ firebase-service-account.json
 /generated/prisma
 
 # ---- Uploaded files (user content) ----
-uploads/
-
+/uploads
 # ---- Logs ----
 logs/
 *.log
