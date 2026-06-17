@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//private/tmp/**)",
+      "Bash(adb -s emulator-5554 shell input tap 540 2233)",
+      "Bash(adb -s emulator-5554 exec-out screencap -p)",
+      "Bash(sips --resampleWidth 440 /tmp/dp_shot.png --out /tmp/dp_shot440.png)"
+    ]
+  }
+}

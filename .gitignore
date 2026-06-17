@@ -1,0 +1,49 @@
+# ---- Dependencies ----
+node_modules/
+
+# ---- Build output ----
+dist/
+build/
+*.tsbuildinfo
+
+# ---- Secrets / environment ----
+# Keep environment variables out of version control
+.env
+.env.*
+!.env.example
+# Firebase Admin service account key — kabhi commit na karein
+firebase-service-account.json
+*-service-account.json
+
+# ---- Prisma generated client ----
+/generated/prisma
+
+# ---- Uploaded files (user content) ----
+uploads/
+
+# ---- Logs ----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Test / coverage ----
+coverage/
+.nyc_output/
+
+# ---- Caches ----
+.cache/
+*.tgz
+.eslintcache
+
+# ---- OS files ----
+.DS_Store
+Thumbs.db
+
+# ---- Editor / IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo

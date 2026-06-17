@@ -1,0 +1,232 @@
+// DealPlate Prisma schema — restaurant promotions marketplace
+// docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER // consumer
+  OWNER
+  STAFF
+  ADMIN
+}
+
+enum PromotionType {
+  FLYER
+  DISCOUNT
+  BUFFET
+  CATERING
+  COUPON
+  EVENT
+}
+
+enum PromotionStatus {
+  DRAFT
+  PENDING // awaiting admin approval
+  APPROVED // approved; live/scheduled/expired derived from dates
+  REJECTED
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PRO
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum StaffRole {
+  MANAGER
+  STAFF
+}
+
+model User {
+  id          String     @id @default(uuid())
+  firebaseUid String     @unique
+  email       String     @unique
+  name        String?
+  photoUrl    String?
+  role        Role?
+  restaurant  Restaurant? // set only for OWNER
+  favorites   Favorite[]
+  staffOf     StaffMember[]
+  devices     DeviceToken[]
+  notifications Notification[]
+  latitude    Float? // last known location (for geo-targeted alerts)
+  longitude   Float?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // new_promo | favorite | expiring | geo | campaign
+  title       String
+  body        String
+  promotionId String?
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Restaurant {
+  id           String        @id @default(uuid())
+  ownerId      String        @unique
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  cuisine      String?
+  description  String?
+  phone        String?
+  addressLine  String?
+  city         String?
+  state        String?
+  zip          String?
+  latitude     Float?
+  longitude    Float?
+  coverImageUrl String?
+  logoUrl      String?
+  priceRange   String?
+  rating       Float         @default(0)
+  reviewCount  Int           @default(0)
+  isOpen       Boolean       @default(true)
+  photos       String[]      @default([])
+  promotions   Promotion[]
+  staff        StaffMember[]
+  menuItems    MenuItem[]
+  campaigns    PushCampaign[]
+  subscription Subscription?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([latitude, longitude])
+  @@index([zip])
+  @@index([city])
+}
+
+model Promotion {
+  id           String          @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  type         PromotionType
+  category     String?
+  title        String
+  description  String?
+  badge        String?
+  imageUrl     String?
+  flyerPdfUrl  String?
+  startDate    DateTime
+  endDate      DateTime
+  status       PromotionStatus @default(PENDING)
+  featured     Boolean         @default(false)
+  views        Int             @default(0)
+  clicks       Int             @default(0)
+  flyerViews   Int             @default(0)
+  expiringNotified Boolean      @default(false)
+  favorites    Favorite[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([restaurantId])
+  @@index([type])
+  @@index([category])
+  @@index([status])
+}
+
+model Favorite {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, promotionId])
+  @@index([userId])
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  restaurantId     String             @unique
+  restaurant       Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan   @default(STARTER)
+  status           SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd DateTime?
+  promosLimit      Int                @default(2)
+  promosUsed       Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+model StaffMember {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name         String
+  email        String
+  role         StaffRole  @default(STAFF)
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  price        Float?
+  imageUrl     String?
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId])
+}
+
+model PushCampaign {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  title        String
+  message      String
+  audience     String     @default("all") // all | favorites | nearby
+  recipients   Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId])
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String? // ios / android
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String? // user id of who performed the action
+  action    String
+  entity    String?
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
