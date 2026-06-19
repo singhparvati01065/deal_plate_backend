@@ -147,7 +147,8 @@ export class PromotionsService {
 
   async create(uid: string, dto: CreatePromotionDto) {
     const restaurant = await this.ownerRestaurant(uid);
-    const promo = await this.prisma.promotion.create({
+    // Submitted for admin review; goes live (and alerts followers) on approval.
+    return this.prisma.promotion.create({
       data: {
         restaurantId: restaurant.id,
         type: dto.type,
@@ -159,24 +160,10 @@ export class PromotionsService {
         flyerPdfUrl: dto.flyerPdfUrl,
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
-        // Auto-approve until the admin moderation portal exists, so
-        // owner promotions are visible to consumers immediately.
-        status: 'APPROVED',
+        status: 'PENDING',
       },
       include: this.withRestaurant,
     });
-
-    // Alert the restaurant's followers (anyone who favorited its deals).
-    const followers =
-      await this.notifications.restaurantFollowerIds(restaurant.id);
-    await this.notifications.notifyUsers(followers, {
-      type: 'new_promo',
-      title: `New deal at ${restaurant.name}`,
-      body: promo.title,
-      promotionId: promo.id,
-    });
-
-    return promo;
   }
 
   async update(uid: string, id: string, dto: Partial<CreatePromotionDto>) {

@@ -1,0 +1,27 @@
+{{> header}}
+<h2>User Management</h2>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Email</th><th>Role</th><th>Restaurant</th><th>Favorites</th><th>Devices</th><th></th></tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+      <tr>
+        <td>{{this.name}}</td>
+        <td>{{this.email}}</td>
+        <td>{{this.role}}</td>
+        <td>{{#if this.restaurant}}{{this.restaurant.name}}{{else}}<span class="muted">—</span>{{/if}}</td>
+        <td>{{this._count.favorites}}</td>
+        <td>{{this._count.devices}}</td>
+        <td>
+          <form class="inline" method="post" action="/admin/users/{{this.id}}/delete" onsubmit="return confirm('Delete this user?');">
+            <button class="btn delete" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {{else}}
+      <tr><td colspan="7" class="muted">No users.</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+{{> footer}}

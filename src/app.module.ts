@@ -16,6 +16,7 @@ import { MenuModule } from './menu/menu.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { DevicesModule } from './devices/devices.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CampaignsModule,
     DevicesModule,
     NotificationsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

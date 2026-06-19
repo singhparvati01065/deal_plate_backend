@@ -1,0 +1,21 @@
+{{> header}}
+<h2>Restaurant Management</h2>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Cuisine</th><th>City</th><th>Plan</th><th>Promotions</th></tr>
+  </thead>
+  <tbody>
+    {{#each restaurants}}
+      <tr>
+        <td>{{this.name}}</td>
+        <td>{{this.cuisine}}</td>
+        <td>{{this.city}}</td>
+        <td><span class="badge APPROVED">{{#if this.subscription}}{{this.subscription.plan}}{{else}}STARTER{{/if}}</span></td>
+        <td>{{this._count.promotions}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="muted">No restaurants.</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+{{> footer}}

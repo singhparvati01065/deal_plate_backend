@@ -1,0 +1,30 @@
+{{> header}}
+<h2>Platform Dashboard</h2>
+
+<div class="cards">
+  <div class="card"><div class="label">Total Users</div><div class="value">{{stats.totalUsers}}</div><div class="muted">+{{stats.newUsers}} this week</div></div>
+  <div class="card"><div class="label">Active Devices</div><div class="value">{{stats.activeDevices}}</div><div class="muted">push-enabled</div></div>
+  <div class="card"><div class="label">Restaurants</div><div class="value">{{stats.totalRestaurants}}</div><div class="muted">{{stats.activeRestaurants}} active</div></div>
+  <div class="card"><div class="label">Promotions</div><div class="value">{{stats.totalPromotions}}</div><div class="muted">{{stats.activePromotions}} live · {{stats.pendingPromotions}} pending</div></div>
+</div>
+
+<h2>Promotion Performance</h2>
+<div class="cards">
+  <div class="card"><div class="label">Total Views</div><div class="value">{{stats.totalViews}}</div></div>
+  <div class="card"><div class="label">Clicks</div><div class="value">{{stats.totalClicks}}</div></div>
+  <div class="card"><div class="label">Flyer Views</div><div class="value">{{stats.totalFlyerViews}}</div></div>
+  <div class="card"><div class="label">Favorites</div><div class="value">{{stats.favorites}}</div></div>
+</div>
+
+<h2>Geographic Trends — Restaurants by City</h2>
+<table>
+  <thead><tr><th>City</th><th>Restaurants</th></tr></thead>
+  <tbody>
+    {{#each stats.byCity}}
+      <tr><td>{{this.city}}</td><td>{{this.count}}</td></tr>
+    {{else}}
+      <tr><td colspan="2" class="muted">No data yet</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+{{> footer}}

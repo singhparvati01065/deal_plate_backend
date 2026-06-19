@@ -1,0 +1,21 @@
+{{> header}}
+<h2>Audit Logs</h2>
+<table>
+  <thead>
+    <tr><th>Time</th><th>Actor</th><th>Action</th><th>Entity</th><th>Entity ID</th></tr>
+  </thead>
+  <tbody>
+    {{#each logs}}
+      <tr>
+        <td class="muted">{{this.createdAt}}</td>
+        <td>{{this.actorId}}</td>
+        <td><span class="badge PENDING">{{this.action}}</span></td>
+        <td>{{this.entity}}</td>
+        <td class="muted">{{this.entityId}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="muted">No audit entries yet.</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+{{> footer}}

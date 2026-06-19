@@ -1,0 +1,43 @@
+{{> header}}
+<h2>Promotion Approval &amp; Moderation</h2>
+
+<div class="filters">
+  <a href="/admin/promotions" class="{{#if (eq status 'ALL')}}active{{/if}}">All</a>
+  <a href="/admin/promotions?status=PENDING" class="{{#if (eq status 'PENDING')}}active{{/if}}">Pending</a>
+  <a href="/admin/promotions?status=APPROVED" class="{{#if (eq status 'APPROVED')}}active{{/if}}">Approved</a>
+  <a href="/admin/promotions?status=REJECTED" class="{{#if (eq status 'REJECTED')}}active{{/if}}">Rejected</a>
+</div>
+
+<table>
+  <thead>
+    <tr><th>Title</th><th>Restaurant</th><th>Category</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {{#each promotions}}
+      <tr>
+        <td>{{this.title}}</td>
+        <td>{{#if this.restaurant}}{{this.restaurant.name}}{{else}}—{{/if}}</td>
+        <td>{{#if this.category}}{{this.category}}{{else}}<span class="muted">—</span>{{/if}}</td>
+        <td><span class="badge {{this.status}}">{{this.status}}</span></td>
+        <td>
+          {{#unless (eq this.status 'APPROVED')}}
+            <form class="inline" method="post" action="/admin/promotions/{{this.id}}/approve">
+              <button class="btn approve" type="submit">Approve</button>
+            </form>
+          {{/unless}}
+          {{#unless (eq this.status 'REJECTED')}}
+            <form class="inline" method="post" action="/admin/promotions/{{this.id}}/reject">
+              <button class="btn reject" type="submit">Reject</button>
+            </form>
+          {{/unless}}
+          <form class="inline" method="post" action="/admin/promotions/{{this.id}}/delete" onsubmit="return confirm('Delete this promotion?');">
+            <button class="btn delete" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="muted">No promotions.</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+{{> footer}}
