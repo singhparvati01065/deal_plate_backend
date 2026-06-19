@@ -92,30 +92,31 @@ export class PromotionsService {
   }
 
   async findOne(id: string) {
-    const promo = await this.prisma.promotion.update({
+    const promo = await this.prisma.promotion.findUnique({
       where: { id },
-      data: { views: { increment: 1 } },
       include: this.withRestaurant,
     });
     if (!promo) throw new NotFoundException('Promotion not found');
-    return promo;
+    // Increment views without failing the read if the row vanished.
+    await this.prisma.promotion
+      .update({ where: { id }, data: { views: { increment: 1 } } })
+      .catch(() => undefined);
+    return { ...promo, views: promo.views + 1 };
   }
 
   /** Consumer tapped a call-to-action (directions / call). */
   async recordClick(id: string) {
-    await this.prisma.promotion.update({
-      where: { id },
-      data: { clicks: { increment: 1 } },
-    });
+    await this.prisma.promotion
+      .update({ where: { id }, data: { clicks: { increment: 1 } } })
+      .catch(() => undefined);
     return { ok: true };
   }
 
   /** Consumer opened the full-screen flyer image. */
   async recordFlyerView(id: string) {
-    await this.prisma.promotion.update({
-      where: { id },
-      data: { flyerViews: { increment: 1 } },
-    });
+    await this.prisma.promotion
+      .update({ where: { id }, data: { flyerViews: { increment: 1 } } })
+      .catch(() => undefined);
     return { ok: true };
   }
 
