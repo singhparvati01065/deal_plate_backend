@@ -17,6 +17,12 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { DevicesModule } from './devices/devices.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdminModule } from './admin/admin.module';
+import { AiModule } from './ai/ai.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
+import { ReferralModule } from './referral/referral.module';
+import { CateringModule } from './catering/catering.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -36,6 +42,12 @@ import { AdminModule } from './admin/admin.module';
     DevicesModule,
     NotificationsModule,
     AdminModule,
+    AiModule,
+    CouponsModule,
+    LoyaltyModule,
+    ReferralModule,
+    CateringModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

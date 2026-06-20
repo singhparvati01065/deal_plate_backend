@@ -37,7 +37,9 @@ export class RestaurantsService {
         },
       },
     });
-    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (!restaurant || restaurant.suspended) {
+      throw new NotFoundException('Restaurant not found');
+    }
     return restaurant;
   }
 
@@ -100,6 +102,7 @@ export class RestaurantsService {
           )))) AS distance_km
         FROM "Restaurant"
         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+          AND suspended = false
       ) AS r
       WHERE distance_km <= ${radiusKm}
       ORDER BY distance_km ASC

@@ -33,12 +33,22 @@ export class PromotionsService {
     to?: Date;
   }) {
     const now = new Date();
+    // A deal stays active through the END of its end-date day, so compare
+    // against the start of today (not the current time) — otherwise a deal
+    // ending "today" would vanish partway through the day.
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     // Active deals overlapping the requested window: not yet ended (>= from
-    // or now), and started on/before the window's end.
-    const from = params.from && params.from > now ? params.from : now;
+    // or today), and started on/before the window's end.
+    const from =
+      params.from && params.from > startOfToday ? params.from : startOfToday;
     const where: Prisma.PromotionWhereInput = {
       status: 'APPROVED',
       endDate: { gte: from },
+      restaurant: { suspended: false },
     };
     if (params.to) where.startDate = { lte: params.to };
     if (params.featured) where.featured = true;
@@ -65,30 +75,65 @@ export class PromotionsService {
       take: 100,
     });
 
-    // Location-based: keep promos whose restaurant is within radius, sorted
-    // nearest-first, with the computed distance attached to each restaurant.
+    // Location-aware results. Distance is always computed when we know the
+    // user's coordinates, and the list is sorted nearest-first. The radius
+    // filter only kicks in when an explicit radiusKm is passed (the "Near me"
+    // toggle) — otherwise every promotion stays visible, just annotated with a
+    // distance. Restaurants without coordinates are kept (distance unknown),
+    // sorted to the end.
     if (params.lat != null && params.lng != null) {
-      const radius = params.radiusKm ?? 15;
-      return promos
-        .map((p) => {
-          const r = p.restaurant;
-          if (r?.latitude == null || r?.longitude == null) return null;
-          const distanceKm = haversineKm(
-            params.lat!,
-            params.lng!,
-            r.latitude,
-            r.longitude,
-          );
-          if (distanceKm > radius) return null;
-          return { ...p, restaurant: { ...r, distance_km: distanceKm } };
+      const radius = params.radiusKm; // undefined => no radius filtering
+      const scored = promos.map((p) => {
+        const r = p.restaurant;
+        const distanceKm =
+          r?.latitude == null || r?.longitude == null
+            ? null
+            : haversineKm(params.lat!, params.lng!, r.latitude, r.longitude);
+        return { promo: p, distanceKm };
+      });
+
+      return scored
+        .filter((x) => {
+          if (radius == null) return true; // no "Near me" filter
+          return x.distanceKm != null && x.distanceKm <= radius;
         })
-        .filter((p): p is NonNullable<typeof p> => p !== null)
-        .sort(
-          (a, b) => a.restaurant.distance_km - b.restaurant.distance_km,
+        .sort((a, b) => {
+          if (a.distanceKm == null) return 1;
+          if (b.distanceKm == null) return -1;
+          return a.distanceKm - b.distanceKm;
+        })
+        .map((x) =>
+          x.distanceKm == null
+            ? x.promo
+            : {
+                ...x.promo,
+                restaurant: { ...x.promo.restaurant, distance_km: x.distanceKm },
+              },
         );
     }
 
     return promos;
+  }
+
+  /** Public: upcoming EVENT-type promotions, soonest first. */
+  async events() {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    return this.prisma.promotion.findMany({
+      where: {
+        status: 'APPROVED',
+        type: 'EVENT',
+        endDate: { gte: startOfToday },
+        restaurant: { suspended: false },
+      },
+      include: this.withRestaurant,
+      orderBy: [{ eventAt: 'asc' }, { startDate: 'asc' }],
+      take: 100,
+    });
   }
 
   async findOne(id: string) {
@@ -147,8 +192,9 @@ export class PromotionsService {
 
   async create(uid: string, dto: CreatePromotionDto) {
     const restaurant = await this.ownerRestaurant(uid);
-    // Submitted for admin review; goes live (and alerts followers) on approval.
-    return this.prisma.promotion.create({
+    // Auto-approve so deals go live immediately; admin can still reject/suspend
+    // from the admin portal.
+    const promo = await this.prisma.promotion.create({
       data: {
         restaurantId: restaurant.id,
         type: dto.type,
@@ -158,12 +204,25 @@ export class PromotionsService {
         badge: dto.badge,
         imageUrl: dto.imageUrl,
         flyerPdfUrl: dto.flyerPdfUrl,
+        eventAt: dto.eventAt ? new Date(dto.eventAt) : null,
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
-        status: 'PENDING',
+        status: 'APPROVED',
       },
       include: this.withRestaurant,
     });
+
+    // Alert the restaurant's followers that a new deal is live.
+    const followers =
+      await this.notifications.restaurantFollowerIds(restaurant.id);
+    await this.notifications.notifyUsers(followers, {
+      type: 'new_promo',
+      title: `New deal at ${restaurant.name}`,
+      body: promo.title,
+      promotionId: promo.id,
+    });
+
+    return promo;
   }
 
   async update(uid: string, id: string, dto: Partial<CreatePromotionDto>) {
@@ -178,6 +237,7 @@ export class PromotionsService {
         ...dto,
         startDate: dto.startDate ? new Date(dto.startDate) : undefined,
         endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+        eventAt: dto.eventAt ? new Date(dto.eventAt) : undefined,
       },
       include: this.withRestaurant,
     });

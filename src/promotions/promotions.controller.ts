@@ -55,6 +55,12 @@ export class PromotionsController {
     return this.promotions.mine(fb.uid);
   }
 
+  /** Public: upcoming events. */
+  @Get('events')
+  events() {
+    return this.promotions.events();
+  }
+
   /** Public: a single promotion (increments views). */
   @Get(':id')
   findOne(@Param('id') id: string) {

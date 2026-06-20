@@ -21,6 +21,7 @@ export class CreatePromotionDto {
   @IsOptional() @IsString() @MaxLength(40) badge?: string;
   @IsOptional() @IsString() imageUrl?: string;
   @IsOptional() @IsString() flyerPdfUrl?: string;
+  @IsOptional() @IsISO8601() eventAt?: string;
 
   @IsISO8601() startDate: string;
   @IsISO8601() endDate: string;

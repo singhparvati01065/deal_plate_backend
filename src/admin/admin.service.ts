@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { SubscriptionPlan } from '@prisma/client';
+import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PLAN_LIMITS } from '../subscriptions/subscriptions.service';
+import { adminJwtSecret } from './admin-api.guard';
 
 @Injectable()
 export class AdminService {
@@ -14,6 +18,11 @@ export class AdminService {
     const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
     return email?.trim().toLowerCase() === adminEmail.toLowerCase() &&
       password === adminPassword;
+  }
+
+  /** Issue an 8h admin JWT for the web portal. */
+  issueToken(): string {
+    return jwt.sign({ admin: true }, adminJwtSecret(), { expiresIn: '8h' });
   }
 
   /** Record an admin action for the audit trail. */
@@ -38,11 +47,14 @@ export class AdminService {
   async dashboard() {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const [
       totalUsers,
       newUsers,
       activeDevices,
+      active7d,
+      active30d,
       totalRestaurants,
       totalPromotions,
       pendingPromotions,
@@ -55,6 +67,8 @@ export class AdminService {
       this.prisma.deviceToken
         .findMany({ select: { userId: true }, distinct: ['userId'] })
         .then((r) => r.length),
+      this.prisma.user.count({ where: { lastSeenAt: { gte: weekAgo } } }),
+      this.prisma.user.count({ where: { lastSeenAt: { gte: monthAgo } } }),
       this.prisma.restaurant.count(),
       this.prisma.promotion.count(),
       this.prisma.promotion.count({ where: { status: 'PENDING' } }),
@@ -74,8 +88,7 @@ export class AdminService {
       distinct: ['restaurantId'],
     });
 
-    // Geographic trends: users grouped by city is not stored, so use
-    // restaurants' cities as the coverage map.
+    // Geographic: restaurant coverage by city.
     const byCity = await this.prisma.restaurant.groupBy({
       by: ['city'],
       _count: { _all: true },
@@ -83,10 +96,40 @@ export class AdminService {
       take: 10,
     });
 
+    // Geographic: where users are — map each located user to the nearest
+    // restaurant's city, then tally.
+    const [locatedUsers, locatedRestaurants] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { latitude: { not: null }, longitude: { not: null } },
+        select: { latitude: true, longitude: true },
+      }),
+      this.prisma.restaurant.findMany({
+        where: { latitude: { not: null }, longitude: { not: null } },
+        select: { city: true, latitude: true, longitude: true },
+      }),
+    ]);
+    const areaTally: Record<string, number> = {};
+    for (const u of locatedUsers) {
+      let best: { city: string | null; d: number } | null = null;
+      for (const r of locatedRestaurants) {
+        const d = haversineKm(u.latitude!, u.longitude!, r.latitude!, r.longitude!);
+        if (!best || d < best.d) best = { city: r.city, d };
+      }
+      const key = best?.city || 'Unknown';
+      areaTally[key] = (areaTally[key] || 0) + 1;
+    }
+    const usersByArea = Object.entries(areaTally)
+      .map(([city, count]) => ({ city, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
     return {
       totalUsers,
       newUsers,
       activeDevices,
+      activeUsers7d: active7d,
+      activeUsers30d: active30d,
+      usersWithLocation: locatedUsers.length,
       totalRestaurants,
       activeRestaurants: activeRestaurantRows.length,
       totalPromotions,
@@ -100,6 +143,7 @@ export class AdminService {
         city: c.city || '—',
         count: c._count._all,
       })),
+      usersByArea,
     };
   }
 
@@ -125,6 +169,31 @@ export class AdminService {
       },
       take: 500,
     });
+  }
+
+  async setRestaurantSuspended(id: string, suspended: boolean) {
+    await this.prisma.restaurant.update({ where: { id }, data: { suspended } });
+    await this.audit(
+      suspended ? 'restaurant.suspend' : 'restaurant.unsuspend',
+      'Restaurant',
+      id,
+    );
+  }
+
+  async deleteRestaurant(id: string) {
+    await this.prisma.restaurant.delete({ where: { id } });
+    await this.audit('restaurant.delete', 'Restaurant', id);
+  }
+
+  async setRestaurantPlan(id: string, plan: string) {
+    const key = (plan ?? '').toUpperCase() as SubscriptionPlan;
+    if (!(key in PLAN_LIMITS)) throw new Error('Invalid plan');
+    await this.prisma.subscription.upsert({
+      where: { restaurantId: id },
+      create: { restaurantId: id, plan: key, promosLimit: PLAN_LIMITS[key] },
+      update: { plan: key, promosLimit: PLAN_LIMITS[key] },
+    });
+    await this.audit('subscription.change', 'Restaurant', id, { plan: key });
   }
 
   async promotions(status?: string) {
@@ -174,4 +243,16 @@ export class AdminService {
       take: 300,
     });
   }
+}
+
+/** Great-circle distance between two coordinates, in kilometres. */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

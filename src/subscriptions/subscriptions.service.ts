@@ -4,7 +4,7 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Active-promotion allowance per plan (Premium = effectively unlimited). */
-const PLAN_LIMITS: Record<SubscriptionPlan, number> = {
+export const PLAN_LIMITS: Record<SubscriptionPlan, number> = {
   STARTER: 2,
   PRO: 15,
   PREMIUM: 9999,

@@ -18,7 +18,16 @@ export class UsersService {
       where: { firebaseUid: fb.uid },
       include: this.include,
     });
-    if (existing) return existing;
+    if (existing) {
+      // Mark activity (for active-user metrics) — best-effort.
+      await this.prisma.user
+        .update({
+          where: { firebaseUid: fb.uid },
+          data: { lastSeenAt: new Date() },
+        })
+        .catch(() => undefined);
+      return existing;
+    }
 
     return this.prisma.user.create({
       data: {
@@ -26,6 +35,7 @@ export class UsersService {
         email: fb.email ?? `${fb.uid}@no-email.local`,
         name: fb.name,
         photoUrl: fb.picture,
+        lastSeenAt: new Date(),
       },
       include: this.include,
     });

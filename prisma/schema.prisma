@@ -62,8 +62,16 @@ model User {
   staffOf     StaffMember[]
   devices     DeviceToken[]
   notifications Notification[]
+  coupons     Coupon[]
+  loyaltyEvents LoyaltyEvent[]
+  referralCode String? // app-generated, uniqueness enforced in code
+  referralsMade    Referral[] @relation("referrals_made")
+  referralReceived Referral?  @relation("referral_received")
+  cateringRequests CateringRequest[]
+  reviews     Review[]
   latitude    Float? // last known location (for geo-targeted alerts)
   longitude   Float?
+  lastSeenAt  DateTime? // updated on auth sync (for active-user metrics)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -80,6 +88,81 @@ model Notification {
   createdAt   DateTime @default(now())
 
   @@index([userId])
+}
+
+model CateringPackage {
+  id             String     @id @default(uuid())
+  restaurantId   String
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  pricePerPerson Float?
+  minGuests      Int?
+  imageUrl       String?
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  requests       CateringRequest[]
+
+  @@index([restaurantId])
+}
+
+model CateringRequest {
+  id           String           @id @default(uuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId String
+  restaurant   Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  packageId    String?
+  package      CateringPackage? @relation(fields: [packageId], references: [id])
+  eventDate    DateTime
+  guests       Int
+  message      String?
+  contactPhone String?
+  status       String           @default("PENDING") // PENDING | RESPONDED | CLOSED
+  createdAt    DateTime         @default(now())
+
+  @@index([restaurantId])
+  @@index([userId])
+}
+
+model Referral {
+  id             String   @id @default(uuid())
+  referrerId     String
+  referrer       User     @relation("referrals_made", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUserId String   @unique
+  referred       User     @relation("referral_received", fields: [referredUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@index([referrerId])
+}
+
+model LoyaltyEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int
+  reason    String // coupon_redeemed | bonus | ...
+  refId     String? // e.g. coupon id
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Coupon {
+  id           String     @id @default(uuid())
+  code         String     @unique
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promotionId  String
+  promotion    Promotion  @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  status       String     @default("ACTIVE") // ACTIVE | REDEEMED
+  redeemedAt   DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([userId])
+  @@index([restaurantId])
 }
 
 model Restaurant {
@@ -102,11 +185,16 @@ model Restaurant {
   rating       Float         @default(0)
   reviewCount  Int           @default(0)
   isOpen       Boolean       @default(true)
+  suspended    Boolean       @default(false) // admin-suspended; hidden from consumers
   photos       String[]      @default([])
   promotions   Promotion[]
   staff        StaffMember[]
   menuItems    MenuItem[]
   campaigns    PushCampaign[]
+  coupons      Coupon[]
+  cateringPackages CateringPackage[]
+  cateringRequests CateringRequest[]
+  reviews      Review[]
   subscription Subscription?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -114,6 +202,21 @@ model Restaurant {
   @@index([latitude, longitude])
   @@index([zip])
   @@index([city])
+}
+
+model Review {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating       Int // 1..5 stars
+  comment      String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, restaurantId]) // one review per user per restaurant (editable)
+  @@index([restaurantId])
 }
 
 model Promotion {
@@ -127,6 +230,7 @@ model Promotion {
   badge        String?
   imageUrl     String?
   flyerPdfUrl  String?
+  eventAt      DateTime? // specific date/time for EVENT-type promotions
   startDate    DateTime
   endDate      DateTime
   status       PromotionStatus @default(PENDING)
@@ -136,6 +240,7 @@ model Promotion {
   flyerViews   Int             @default(0)
   expiringNotified Boolean      @default(false)
   favorites    Favorite[]
+  coupons      Coupon[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -178,6 +283,7 @@ model StaffMember {
   user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   name         String
   email        String
+  photoUrl     String?
   role         StaffRole  @default(STAFF)
   createdAt    DateTime   @default(now())
 

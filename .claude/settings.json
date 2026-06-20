@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter run *)",
+      "Bash(tee /tmp/dealplate_run.log)"
+    ],
+    "additionalDirectories": [
+      "/Users/parvati/dealplateweb/lib"
+    ]
+  }
+}
