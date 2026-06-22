@@ -23,6 +23,7 @@ import { LoyaltyModule } from './loyalty/loyalty.module';
 import { ReferralModule } from './referral/referral.module';
 import { CateringModule } from './catering/catering.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { PlansModule } from './plans/plans.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     ReferralModule,
     CateringModule,
     ReviewsModule,
+    PlansModule,
   ],
   controllers: [AppController],
   providers: [AppService],

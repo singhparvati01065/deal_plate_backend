@@ -31,6 +31,15 @@ export class SubscriptionsService {
     return { ...sub, promosUsed };
   }
 
+  /** Promo allowance for a plan — admin-edited value from the DB, else the
+   * built-in default. */
+  private async promoLimitFor(key: SubscriptionPlan): Promise<number> {
+    const plan = await this.prisma.plan
+      .findUnique({ where: { key } })
+      .catch(() => null);
+    return plan?.promoLimit ?? PLAN_LIMITS[key];
+  }
+
   /** Switch the owner's plan (no payment gateway yet — applies immediately). */
   async setPlan(uid: string, plan: string) {
     const restaurant = await this.restaurants.requireOwned(uid);
@@ -38,14 +47,15 @@ export class SubscriptionsService {
     if (!(key in PLAN_LIMITS)) {
       throw new BadRequestException('Invalid plan');
     }
+    const limit = await this.promoLimitFor(key);
     const sub = await this.prisma.subscription.upsert({
       where: { restaurantId: restaurant.id },
       create: {
         restaurantId: restaurant.id,
         plan: key,
-        promosLimit: PLAN_LIMITS[key],
+        promosLimit: limit,
       },
-      update: { plan: key, promosLimit: PLAN_LIMITS[key] },
+      update: { plan: key, promosLimit: limit },
     });
     const promosUsed = await this.prisma.promotion.count({
       where: { restaurantId: restaurant.id },

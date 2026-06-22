@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UnauthorizedException,
@@ -11,11 +12,41 @@ import {
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminApiGuard } from './admin-api.guard';
+import { PlansService, UpdatePlanData } from '../plans/plans.service';
+import { ReviewsService } from '../reviews/reviews.service';
 
 /** JSON API consumed by the dealplateweb (Next.js) admin portal. */
 @Controller('admin/api')
 export class AdminApiController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly plans: PlansService,
+    private readonly reviews: ReviewsService,
+  ) {}
+
+  @Get('plans')
+  @UseGuards(AdminApiGuard)
+  listPlans() {
+    return this.plans.list();
+  }
+
+  @Patch('plans/:id')
+  @UseGuards(AdminApiGuard)
+  updatePlan(@Param('id') id: string, @Body() body: UpdatePlanData) {
+    return this.plans.update(id, body);
+  }
+
+  @Get('reviews')
+  @UseGuards(AdminApiGuard)
+  listReviews() {
+    return this.reviews.listAll();
+  }
+
+  @Delete('reviews/:id')
+  @UseGuards(AdminApiGuard)
+  deleteReview(@Param('id') id: string) {
+    return this.reviews.adminRemove(id);
+  }
 
   @Post('login')
   login(@Body('email') email: string, @Body('password') password: string) {

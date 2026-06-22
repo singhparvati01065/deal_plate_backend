@@ -204,6 +204,20 @@ model Restaurant {
   @@index([city])
 }
 
+model Plan {
+  id          String   @id @default(uuid())
+  key         String   @unique // STARTER | PRO | PREMIUM
+  name        String
+  price       Float    @default(0) // monthly price (USD); 0 = free
+  period      String   @default("per month")
+  description String   @default("")
+  features    String[] @default([])
+  promoLimit  Int      @default(2) // active-promotion allowance
+  popular     Boolean  @default(false)
+  order       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
 model Review {
   id           String     @id @default(uuid())
   restaurantId String

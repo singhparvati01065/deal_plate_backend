@@ -30,6 +30,27 @@ export class ReviewsService {
     });
   }
 
+  /** Admin: every review across the platform, newest first. */
+  async listAll() {
+    return this.prisma.review.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { name: true, email: true } },
+        restaurant: { select: { name: true } },
+      },
+      take: 500,
+    });
+  }
+
+  /** Admin: remove any review (moderation), then refresh the average. */
+  async adminRemove(id: string) {
+    const review = await this.prisma.review.findUnique({ where: { id } });
+    if (!review) throw new NotFoundException('Review not found');
+    await this.prisma.review.delete({ where: { id } });
+    await this.recalc(review.restaurantId);
+    return { deleted: true };
+  }
+
   /** Consumer: their own review for a restaurant (to pre-fill the form). */
   async mine(uid: string, restaurantId: string) {
     const userId = await this.userId(uid);
